@@ -3,18 +3,18 @@ const knex = require('../database/knex');
 class NotesController {
   async create(request, response) {
     const { title, description, tags, links } = request.body;
-    const { user_id } = request.params;
+    const user_id = request.user.id;
 
     const [note_id] = await knex('notes').insert({
       title,
       description,
-      user_id
+      user_id,
     });
 
-    const linksInsert = links.map(link => {
+    const linksInsert = links.map((link) => {
       return {
         note_id,
-        url: link
+        url: link,
       };
     });
 
@@ -24,7 +24,7 @@ class NotesController {
       return {
         note_id,
         name,
-        user_id
+        user_id,
       };
     });
 
@@ -45,7 +45,7 @@ class NotesController {
     return response.json({
       ...note,
       tags,
-      links
+      links,
     });
   }
 
@@ -57,12 +57,14 @@ class NotesController {
   }
 
   async index(request, response) {
-    const { user_id, title, tags } = request.query;
+    const { title, tags } = request.query;
+
+    const user_id = request.user.id;
 
     let notes;
 
     if (tags) {
-      const filterTags = tags.split(',').map(tag => tag.trim());
+      const filterTags = tags.split(',').map((tag) => tag.trim());
 
       notes = await knex('tags')
         .select(['notes.id', 'notes.title', 'notes.user_id'])
@@ -70,6 +72,7 @@ class NotesController {
         .whereLike('notes.title', `%${title}%`)
         .whereIn('name', filterTags)
         .innerJoin('notes', 'notes.id', 'tags.note_id')
+        .groupBy('notes.id')
         .orderBy('notes.title');
     } else {
       notes = await knex('notes')
@@ -79,12 +82,12 @@ class NotesController {
     }
 
     const userTags = await knex('tags').where({ user_id });
-    const notesWithTags = notes.map(note => {
-      const noteTags = userTags.filter(tag => tag.note_id === note.id);
+    const notesWithTags = notes.map((note) => {
+      const noteTags = userTags.filter((tag) => tag.note_id === note.id);
 
       return {
         ...note,
-        tags: noteTags
+        tags: noteTags,
       };
     });
 
